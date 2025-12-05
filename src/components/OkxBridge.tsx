@@ -1,5 +1,5 @@
 import { Card, Space, Typography, Button, Input, Select, Tag } from 'antd';
-import { useEffect, useMemo, useState, type ChangeEvent } from 'react';
+import { useEffect, useMemo, useState, useRef, type ChangeEvent } from 'react';
 import { formatUnits, parseUnits } from 'viem';
 import { useUnifiedSender } from '../hooks/useUnifiedSender';
 import { useSettingsStore } from '../store/settingsStore';
@@ -131,10 +131,33 @@ export default function OkxBridge() {
     }
   };
 
+  // 使用 ref 来追踪上一次请求的参数，防止重复调用
+  const lastFetchRef = useRef<{ chainId: string; timestamp: number } | null>(null);
+
   useEffect(() => {
+    let mounted = true;
     const fetchTokens = async () => {
+      const currentChainId = String(form.fromChainId);
+      const now = Date.now();
+
+      // 如果参数相同且距离上次请求时间小于 1000ms，则跳过
+      if (
+        lastFetchRef.current &&
+        lastFetchRef.current.chainId === currentChainId &&
+        now - lastFetchRef.current.timestamp < 1000
+      ) {
+        return;
+      }
+
+      // 更新最后一次请求记录
+      lastFetchRef.current = { chainId: currentChainId, timestamp: now };
+
       try {
-        const data = await api.dex.get_all_tokens({});
+        const data = await api.dex.crossChain.get_bridge_tokens({
+          fromChainId: Number(currentChainId),
+        });
+        if (!mounted) return;
+
         if (Array.isArray(data)) {
           const mapped: BridgeToken[] = (data as any[]).map((item: any) => ({
             id: `${item.chainId}-${item.tokenContractAddress}`,
@@ -146,6 +169,7 @@ export default function OkxBridge() {
             decimals: Number(item.decimals || item.tokenDecimals || 18),
             bridgeType: 'okx' as const,
           })).filter((token: BridgeToken) => token.tokenContractAddress);
+
           setTokenOptions((prev) => {
             const map = new Map(prev.map((t) => [t.id, t]));
             mapped.forEach((token) => {
@@ -155,11 +179,14 @@ export default function OkxBridge() {
           });
         }
       } catch (err: any) {
-        setLog(prev => `同步 Token 列表失败: ${err?.message || err}\n${prev}`);
+        if (mounted) {
+          setLog(prev => `同步 Token 列表失败: ${err?.message || err}\n${prev}`);
+        }
       }
     };
     fetchTokens();
-  }, [api]);
+    return () => { mounted = false; };
+  }, [api, form.fromChainId]);
 
   useEffect(() => {
     if (!selectedToken && tokenOptions.length) {
@@ -227,8 +254,8 @@ export default function OkxBridge() {
   if (isSolBridge) {
     return (
       <Card>
-        <Space direction="vertical" size="large" style={{ width: '100%' }}>
-          <Space direction="vertical" size={4}>
+        <Space orientation="vertical" size="large" style={{ width: '100%' }}>
+          <Space orientation="vertical" size={4}>
             <Text type="secondary" style={{ letterSpacing: '0.3em', fontSize: 12 }}>SOLANA PORTAL BRIDGE</Text>
             <Text strong>通过 Portal Bridge 发送 SOL</Text>
             <Text type="secondary">向 Wormhole Portal Bridge 地址转账 SOL，并在 Memo 中写入目标链地址或备注。</Text>
@@ -245,7 +272,7 @@ export default function OkxBridge() {
 
           <Text type="secondary">提示：完成 Sol→Bridge 后，请前往 Portal Bridge 官方界面领取到目标链地址。</Text>
 
-          <Space direction="vertical" size={4} style={{ width: '100%' }}>
+          <Space orientation="vertical" size={4} style={{ width: '100%' }}>
             <Text type="secondary" style={{ fontSize: 12 }}>日志</Text>
             <Input.TextArea value={solLog} rows={4} readOnly placeholder="尚未开始" />
           </Space>
@@ -256,16 +283,16 @@ export default function OkxBridge() {
 
   return (
     <Card>
-      <Space direction="vertical" size="large" style={{ width: '100%' }}>
-        <Space direction="vertical" size={4}>
+      <Space orientation="vertical" size="large" style={{ width: '100%' }}>
+        <Space orientation="vertical" size={4}>
           <Text type="secondary" style={{ letterSpacing: '0.3em', fontSize: 12 }}>OKX CROSS-CHAIN</Text>
           <Text strong>OKX 跨链桥</Text>
           <Text type="secondary">调用官方 API，动态获取最优路由并构建交易。</Text>
         </Space>
 
-        <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-          <Space direction="horizontal" size="large" style={{ width: '100%' }} wrap>
-            <Space direction="vertical" size={4}>
+        <Space orientation="vertical" size="middle" style={{ width: '100%' }}>
+          <Space orientation="horizontal" size="large" style={{ width: '100%' }} wrap>
+            <Space orientation="vertical" size={4}>
               <Text type="secondary" style={{ fontSize: 12 }}>来源链</Text>
               <Select
                 style={{ minWidth: 200 }}
@@ -278,7 +305,7 @@ export default function OkxBridge() {
                 }}
               />
             </Space>
-            <Space direction="vertical" size={4}>
+            <Space orientation="vertical" size={4}>
               <Text type="secondary" style={{ fontSize: 12 }}>目标链</Text>
               <Select
                 style={{ minWidth: 200 }}
@@ -293,18 +320,18 @@ export default function OkxBridge() {
             </Space>
           </Space>
 
-          <Space direction="horizontal" size="large" style={{ width: '100%' }} wrap>
-            <Space direction="vertical" size={4}>
+          <Space orientation="horizontal" size="large" style={{ width: '100%' }} wrap>
+            <Space orientation="vertical" size={4}>
               <Text type="secondary" style={{ fontSize: 12 }}>数量</Text>
               <Input value={amount} onChange={(e: ChangeEvent<HTMLInputElement>) => setAmount(e.target.value)} placeholder="发送数量" />
             </Space>
-            <Space direction="vertical" size={4}>
+            <Space orientation="vertical" size={4}>
               <Text type="secondary" style={{ fontSize: 12 }}>Token Decimals</Text>
               <Input value={form.decimals} onChange={(e: ChangeEvent<HTMLInputElement>) => setForm(prev => ({ ...prev, decimals: e.target.value }))} />
             </Space>
           </Space>
 
-          <Space direction="vertical" size={4} style={{ width: '100%' }}>
+          <Space orientation="vertical" size={4} style={{ width: '100%' }}>
             <Text type="secondary" style={{ fontSize: 12 }}>选择代币</Text>
             <Select
               value={selectedToken}
@@ -314,19 +341,19 @@ export default function OkxBridge() {
           </Space>
         </Space>
 
-        <Space direction="vertical" size={4} style={{ width: '100%' }}>
+        <Space orientation="vertical" size={4} style={{ width: '100%' }}>
           <Text type="secondary" style={{ fontSize: 12 }}>来源 Token 合约</Text>
           <Input value={form.tokenContractAddress} onChange={(e: ChangeEvent<HTMLInputElement>) => setForm(prev => ({ ...prev, tokenContractAddress: e.target.value }))} />
         </Space>
-        <Space direction="vertical" size={4} style={{ width: '100%' }}>
+        <Space orientation="vertical" size={4} style={{ width: '100%' }}>
           <Text type="secondary" style={{ fontSize: 12 }}>目标 Token 合约</Text>
           <Input value={form.toTokenContractAddress} onChange={(e: ChangeEvent<HTMLInputElement>) => setForm(prev => ({ ...prev, toTokenContractAddress: e.target.value }))} />
         </Space>
 
-        <Card size="small" bordered>
-          <Space direction="vertical" size={4} style={{ width: '100%' }}>
+        <Card size="small" variant="borderless">
+          <Space orientation="vertical" size={4} style={{ width: '100%' }}>
             <Space align="center" style={{ justifyContent: 'space-between', width: '100%' }}>
-              <Space direction="vertical" size={4}>
+              <Space orientation="vertical" size={4}>
                 <Text type="secondary" style={{ fontSize: 12 }}>Route</Text>
                 <Text>{currentRoute}</Text>
                 <Text type="secondary" style={{ fontSize: 12 }}>
@@ -350,7 +377,7 @@ export default function OkxBridge() {
 
         <Button type="primary" onClick={runBridge}>执行跨链</Button>
 
-        <Space direction="vertical" size={4} style={{ width: '100%' }}>
+        <Space orientation="vertical" size={4} style={{ width: '100%' }}>
           <Text type="secondary" style={{ fontSize: 12 }}>执行日志</Text>
           <Input.TextArea value={log} readOnly placeholder="尚未开始" rows={4} />
         </Space>

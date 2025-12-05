@@ -12,7 +12,7 @@ import '@rainbow-me/rainbowkit/styles.css';
 import { config } from './wagmi';
 import AppLayout from './layouts/AppLayout';
 import { RouterProvider } from './router';
-import { ConfigProvider } from 'antd';
+import { ConfigProvider, App as AntdApp } from 'antd';
 
 const queryClient = new QueryClient();
 
@@ -45,9 +45,11 @@ function App() {
                     },
                   }}
                 >
-                  <RouterProvider>
-                    <AppLayout />
-                  </RouterProvider>
+                  <AntdApp>
+                    <RouterProvider>
+                      <AppLayout />
+                    </RouterProvider>
+                  </AntdApp>
                 </ConfigProvider>
               </RainbowKitProvider>
             </QueryClientProvider>

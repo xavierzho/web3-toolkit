@@ -154,7 +154,7 @@ export default function MultiTradePage() {
       try {
         for (let i = 0; i < accountCount; i++) {
           const accIndex = accountStart + i;
-          const acc = mnemonicToAccount(mnemonic, { accountIndex: accIndex });
+          const acc = mnemonicToAccount(mnemonic, { addressIndex: accIndex });
           const pkBytes = acc.getHdKey().privateKey;
           if (!pkBytes) throw new Error('无法解析助记词私钥');
           const pkHex = bytesToHex(pkBytes) as `0x${string}`;
@@ -165,7 +165,7 @@ export default function MultiTradePage() {
       }
     }
     return accounts;
-  }, [privateKeysInput, mnemonic, accountCount]);
+  }, [privateKeysInput, mnemonic, accountCount, accountStart]);
 
   const addLog = (msg: string) => {
     setLogs(prev => [`[${new Date().toLocaleTimeString()}] ${msg}`, ...prev].slice(0, 200));
@@ -177,7 +177,12 @@ export default function MultiTradePage() {
       return;
     }
     try {
-      const client = createPublicClient({ transport: http(form.readRpc), chain: bsc });
+      // Enable JSON-RPC batching
+      const client = createPublicClient({
+        transport: http(form.readRpc, { batch: true }),
+        chain: bsc
+      });
+
       const list = await Promise.all(
         parsedAccounts.map(async acc => {
           try {
@@ -185,13 +190,14 @@ export default function MultiTradePage() {
               client.getBalance({ address: acc.address }),
               form.token
                 ? client.readContract({
-                    address: form.token as `0x${string}`,
-                    abi: erc20Abi,
-                    functionName: 'balanceOf',
-                    args: [acc.address],
-                  })
+                  address: form.token as `0x${string}`,
+                  abi: erc20Abi,
+                  functionName: 'balanceOf',
+                  args: [acc.address],
+                })
                 : Promise.resolve(0n),
             ]);
+
             return {
               key: acc.address,
               address: acc.address,
@@ -209,113 +215,113 @@ export default function MultiTradePage() {
     }
   };
 
-  const applySlippage = (amount: bigint, slip: number, direction: 'down' | 'up') => {
-    const factor = BigInt(Math.floor((direction === 'down' ? 1 - slip : 1 + slip) * 10_000));
+  const applySlippage = (amount: bigint, slip: number, orientation: 'down' | 'up') => {
+    const factor = BigInt(Math.floor((orientation === 'down' ? 1 - slip : 1 + slip) * 10_000));
     return (amount * factor) / 10_000n;
   };
 
-const executeBuy = async (task: TaskAccount) => {
-  if (!form.token) throw new Error('请填写代币地址');
-  const publicClient = createPublicClient({ transport: http(form.readRpc), chain: bsc });
-  const walletClient = createWalletClient({
-    account: privateKeyToAccount(task.pk as `0x${string}`),
-    transport: http(form.writeRpc),
-    chain: bsc,
-  });
-  const deadline = BigInt(Math.floor(Date.now() / 1000) + 1200);
-  if (form.buyMode === 'exactOut') {
-    if (!form.amountOutToken) throw new Error('请输入目标 Token 数量');
-    const desired = parseUnits(form.amountOutToken, form.tokenDecimals);
-    const amountsIn = await publicClient.readContract({
+  const executeBuy = async (task: TaskAccount) => {
+    if (!form.token) throw new Error('请填写代币地址');
+    const publicClient = createPublicClient({ transport: http(form.readRpc), chain: bsc });
+    const walletClient = createWalletClient({
+      account: privateKeyToAccount(task.pk as `0x${string}`),
+      transport: http(form.writeRpc),
+      chain: bsc,
+    });
+    const deadline = BigInt(Math.floor(Date.now() / 1000) + 1200);
+    if (form.buyMode === 'exactOut') {
+      if (!form.amountOutToken) throw new Error('请输入目标 Token 数量');
+      const desired = parseUnits(form.amountOutToken, form.tokenDecimals);
+      const amountsIn = await publicClient.readContract({
+        address: form.router as `0x${string}`,
+        abi: ROUTER_ABI,
+        functionName: 'getAmountsIn',
+        args: [desired, pathWbnbToToken as `0x${string}`[]],
+      });
+      const maxIn = applySlippage(amountsIn[0], form.slippage, 'up');
+      await walletClient.writeContract({
+        address: form.router as `0x${string}`,
+        abi: ROUTER_ABI,
+        functionName: 'swapETHForExactTokens',
+        args: [desired, pathWbnbToToken as `0x${string}`[], task.address, deadline],
+        value: maxIn,
+        gas: BigInt(form.gasLimit),
+      });
+      return;
+    }
+    let amountIn: bigint;
+    if (form.buyMode === 'spendAll') {
+      const balance = await publicClient.getBalance({ address: task.address });
+      const reserve = parseEther(form.reserveBnb || '0.003');
+      if (balance <= reserve) throw new Error('BNB 余额不足');
+      amountIn = balance - reserve;
+    } else {
+      if (!form.amountInBnb) throw new Error('请填写买入数量');
+      amountIn = parseEther(form.amountInBnb);
+    }
+    if (amountIn <= 0n) throw new Error('买入数量无效');
+    const amountsOut = await publicClient.readContract({
       address: form.router as `0x${string}`,
       abi: ROUTER_ABI,
-      functionName: 'getAmountsIn',
-      args: [desired, pathWbnbToToken as `0x${string}`[]],
+      functionName: 'getAmountsOut',
+      args: [amountIn, pathWbnbToToken as `0x${string}`[]],
     });
-    const maxIn = applySlippage(amountsIn[0], form.slippage, 'up');
+    const minOut = applySlippage(amountsOut[amountsOut.length - 1], form.slippage, 'down');
     await walletClient.writeContract({
       address: form.router as `0x${string}`,
       abi: ROUTER_ABI,
-      functionName: 'swapETHForExactTokens',
-      args: [desired, pathWbnbToToken as `0x${string}`[], task.address, deadline],
-      value: maxIn,
+      functionName: 'swapExactETHForTokensSupportingFeeOnTransferTokens',
+      args: [minOut, pathWbnbToToken as `0x${string}`[], task.address, deadline],
+      value: amountIn,
       gas: BigInt(form.gasLimit),
     });
-    return;
-  }
-  let amountIn: bigint;
-  if (form.buyMode === 'spendAll') {
-    const balance = await publicClient.getBalance({ address: task.address });
-    const reserve = parseEther(form.reserveBnb || '0.003');
-    if (balance <= reserve) throw new Error('BNB 余额不足');
-    amountIn = balance - reserve;
-  } else {
-    if (!form.amountInBnb) throw new Error('请填写买入数量');
-    amountIn = parseEther(form.amountInBnb);
-  }
-  if (amountIn <= 0n) throw new Error('买入数量无效');
-  const amountsOut = await publicClient.readContract({
-    address: form.router as `0x${string}`,
-    abi: ROUTER_ABI,
-    functionName: 'getAmountsOut',
-    args: [amountIn, pathWbnbToToken as `0x${string}`[]],
-  });
-  const minOut = applySlippage(amountsOut[amountsOut.length - 1], form.slippage, 'down');
-  await walletClient.writeContract({
-    address: form.router as `0x${string}`,
-    abi: ROUTER_ABI,
-    functionName: 'swapExactETHForTokensSupportingFeeOnTransferTokens',
-    args: [minOut, pathWbnbToToken as `0x${string}`[], task.address, deadline],
-    value: amountIn,
-    gas: BigInt(form.gasLimit),
-  });
-};
+  };
 
-const executeSell = async (task: TaskAccount) => {
-  if (!form.token) throw new Error('请填写代币地址');
-  const publicClient = createPublicClient({ transport: http(form.readRpc), chain: bsc });
-  const walletClient = createWalletClient({
-    account: privateKeyToAccount(task.pk as `0x${string}`),
-    transport: http(form.writeRpc),
-    chain: bsc,
-  });
-  let amountIn: bigint;
-  if (form.sellAll) {
-    const bal = await publicClient.readContract({
+  const executeSell = async (task: TaskAccount) => {
+    if (!form.token) throw new Error('请填写代币地址');
+    const publicClient = createPublicClient({ transport: http(form.readRpc), chain: bsc });
+    const walletClient = createWalletClient({
+      account: privateKeyToAccount(task.pk as `0x${string}`),
+      transport: http(form.writeRpc),
+      chain: bsc,
+    });
+    let amountIn: bigint;
+    if (form.sellAll) {
+      const bal = await publicClient.readContract({
+        address: form.token as `0x${string}`,
+        abi: erc20Abi,
+        functionName: 'balanceOf',
+        args: [task.address],
+      });
+      if (bal <= 0n) throw new Error('Token 余额不足');
+      amountIn = bal;
+    } else {
+      if (!form.sellAmountToken) throw new Error('请填写卖出数量');
+      amountIn = parseUnits(form.sellAmountToken, form.tokenDecimals);
+    }
+    if (amountIn <= 0n) throw new Error('卖出数量无效');
+    await walletClient.writeContract({
       address: form.token as `0x${string}`,
       abi: erc20Abi,
-      functionName: 'balanceOf',
-      args: [task.address],
+      functionName: 'approve',
+      args: [form.router as `0x${string}`, amountIn],
     });
-    if (bal <= 0n) throw new Error('Token 余额不足');
-    amountIn = bal;
-  } else {
-    if (!form.sellAmountToken) throw new Error('请填写卖出数量');
-    amountIn = parseUnits(form.sellAmountToken, form.tokenDecimals);
-  }
-  if (amountIn <= 0n) throw new Error('卖出数量无效');
-  await walletClient.writeContract({
-    address: form.token as `0x${string}`,
-    abi: erc20Abi,
-    functionName: 'approve',
-    args: [form.router as `0x${string}`, amountIn],
-  });
-  const amountsOut = await publicClient.readContract({
-    address: form.router as `0x${string}`,
-    abi: ROUTER_ABI,
-    functionName: 'getAmountsOut',
-    args: [amountIn, pathTokenToWbnb as `0x${string}`[]],
-  });
-  const minOut = applySlippage(amountsOut[amountsOut.length - 1], form.slippage, 'down');
-  const deadline = BigInt(Math.floor(Date.now() / 1000) + 1200);
-  await walletClient.writeContract({
-    address: form.router as `0x${string}`,
-    abi: ROUTER_ABI,
-    functionName: 'swapExactTokensForETHSupportingFeeOnTransferTokens',
-    args: [amountIn, minOut, pathTokenToWbnb as `0x${string}`[], task.address, deadline],
-    gas: BigInt(form.gasLimit),
-  });
-};
+    const amountsOut = await publicClient.readContract({
+      address: form.router as `0x${string}`,
+      abi: ROUTER_ABI,
+      functionName: 'getAmountsOut',
+      args: [amountIn, pathTokenToWbnb as `0x${string}`[]],
+    });
+    const minOut = applySlippage(amountsOut[amountsOut.length - 1], form.slippage, 'down');
+    const deadline = BigInt(Math.floor(Date.now() / 1000) + 1200);
+    await walletClient.writeContract({
+      address: form.router as `0x${string}`,
+      abi: ROUTER_ABI,
+      functionName: 'swapExactTokensForETHSupportingFeeOnTransferTokens',
+      args: [amountIn, minOut, pathTokenToWbnb as `0x${string}`[], task.address, deadline],
+      gas: BigInt(form.gasLimit),
+    });
+  };
 
   const startTrading = async () => {
     if (!parsedAccounts.length) {
@@ -343,9 +349,9 @@ const executeSell = async (task: TaskAccount) => {
   };
 
   return (
-    <Space direction="vertical" size="large" style={{ width: '100%' }}>
+    <Space orientation="vertical" size="large" style={{ width: '100%' }}>
       <Card title="批量交易参数">
-        <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+        <Space orientation="vertical" size="middle" style={{ width: '100%' }}>
           <Space wrap>
             <Input style={{ width: 260 }} placeholder="读 RPC" value={form.readRpc} onChange={(e) => setForm({ ...form, readRpc: e.target.value })} />
             <Input style={{ width: 260 }} placeholder="写 RPC" value={form.writeRpc} onChange={(e) => setForm({ ...form, writeRpc: e.target.value })} />
@@ -396,7 +402,7 @@ const executeSell = async (task: TaskAccount) => {
             )}
             <Input placeholder="滑点 (0.01=1%)" value={form.slippage} onChange={(e) => setForm({ ...form, slippage: Number(e.target.value) || 0 })} style={{ width: 150 }} />
           </Space>
-          <Space direction="vertical" size="small" style={{ width: '100%' }}>
+          <Space orientation="vertical" size="small" style={{ width: '100%' }}>
             <Text>私钥列表 / 助记词</Text>
             <TextArea rows={4} placeholder="每行一个私钥" value={privateKeysInput} onChange={(e) => setPrivateKeysInput(e.target.value)} />
             <Input placeholder="助记词（可选）" value={mnemonic} onChange={(e) => setMnemonic(e.target.value)} />
@@ -431,8 +437,8 @@ const executeSell = async (task: TaskAccount) => {
         />
       </Card>
 
-      <Card title="日志" bodyStyle={{ maxHeight: 240, overflow: 'auto' }}>
-        <Space direction="vertical" style={{ width: '100%' }}>
+      <Card title="日志" styles={{ body: { maxHeight: 240, overflow: 'auto' } }}>
+        <Space orientation="vertical" style={{ width: '100%' }}>
           {logs.map((line, idx) => (
             <Text key={idx} type="secondary">{line}</Text>
           ))}

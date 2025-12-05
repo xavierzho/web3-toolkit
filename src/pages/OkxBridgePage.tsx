@@ -8,9 +8,9 @@ export default function OkxBridgePage() {
   const { navigate } = useRouter();
 
   return (
-    <Space direction="vertical" size="large" style={{ width: '100%' }}>
+    <Space orientation="vertical" size="large" style={{ width: '100%' }}>
       <Card>
-        <Space direction="vertical" size="small">
+        <Space orientation="vertical" size="small">
           <Text type="secondary" style={{ letterSpacing: '0.3em', fontSize: 12 }}>CROSS-CHAIN</Text>
           <Title level={3} style={{ margin: 0 }}>跨链桥</Title>
           <Text type="secondary">

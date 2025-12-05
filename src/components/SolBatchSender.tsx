@@ -98,10 +98,10 @@ export default function SolBatchSender() {
   }));
 
   return (
-    <Space direction="vertical" size="large" style={{ width: '100%' }}>
+    <Space orientation="vertical" size="large" style={{ width: '100%' }}>
       <Card>
-        <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-          <Space direction="vertical" size={4}>
+        <Space orientation="vertical" size="middle" style={{ width: '100%' }}>
+          <Space orientation="vertical" size={4}>
             <Text type="secondary" style={{ letterSpacing: '0.3em', fontSize: 12 }}>SOLANA NATIVE</Text>
             <Text strong>SOL 批量转账</Text>
             <Text type="secondary" style={{ fontSize: 13 }}>自动拆分每批 12 条指令以内，实时显示执行进度。</Text>
@@ -126,8 +126,8 @@ export default function SolBatchSender() {
       </Card>
 
       <Card>
-        <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-          <Space direction="vertical" size={4}>
+        <Space orientation="vertical" size="middle" style={{ width: '100%' }}>
+          <Space orientation="vertical" size={4}>
             <Text type="secondary" style={{ fontSize: 12 }}>
               有效地址 {summary.totalRecipients} 个 · 合计约 {summary.totalSol.toFixed(4)} SOL
             </Text>

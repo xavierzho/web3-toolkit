@@ -12,8 +12,12 @@ const CHAIN_MAP: Record<number, Chain> = {
   11155111: sepolia
 };
 
-export function useUnifiedSender(chainId: number = 1, rpcUrl?: string) {
-  const { mode, evmAccount } = useWalletStore();
+export function useUnifiedSender(overrideChainId?: number, overrideRpcUrl?: string) {
+  const { mode, evmAccount, chainId: storeChainId, rpcUrl: storeRpcUrl } = useWalletStore();
+
+  const chainId = overrideChainId || storeChainId;
+  const rpcUrl = overrideRpcUrl || storeRpcUrl;
+
   const { writeContractAsync: writeExternal } = useWriteContract();
   const { deployContractAsync: deployExternal } = useDeployContract();
 

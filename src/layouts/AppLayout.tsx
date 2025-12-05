@@ -7,6 +7,7 @@ import OkxBridgePage from '../pages/OkxBridgePage';
 import SolBatchPage from '../pages/SolBatchPage';
 import AirdropPage from '../pages/AirdropPage';
 import MultiTradePage from '../pages/MultiTradePage';
+import VolumeBotPage from '../pages/VolumeBotPage';
 import { RouteView, useRouter, type RouteObject } from '../router';
 
 const { Title, Text } = Typography;
@@ -18,6 +19,7 @@ const routes: RouteObject[] = [
   { path: '/okx-bridge', element: <OkxBridgePage /> },
   { path: '/airdrop', element: <AirdropPage /> },
   { path: '/multi-trade', element: <MultiTradePage /> },
+  { path: '/volume-bot', element: <VolumeBotPage /> },
   { path: '*', element: <NotFound /> },
 ];
 
@@ -28,6 +30,7 @@ const navLinks = [
   { path: '/okx-bridge', label: 'OKX 跨链' },
   { path: '/airdrop', label: '空投工具' },
   { path: '/multi-trade', label: '多钱包交易' },
+  { path: '/volume-bot', label: '自动刷量' },
 ];
 
 export default function AppLayout() {
@@ -37,7 +40,7 @@ export default function AppLayout() {
     <App>
       <div style={{ background: '#f5f6f8', minHeight: '100vh', padding: '40px 16px' }}>
         <div style={{ maxWidth: 1200, margin: '0 auto' }}>
-          <Space direction="vertical" size={24} style={{ width: '100%' }}>
+          <Space orientation="vertical" size={24} style={{ width: '100%' }}>
             <Card styles={{ body: { display: 'flex', gap: 24, flexWrap: 'wrap', alignItems: 'center' } }}>
               <Space size={16} align="start">
                 <div
@@ -80,7 +83,7 @@ export default function AppLayout() {
                 <RouteView routes={routes} />
               </Col>
               <Col xs={24} lg={8}>
-                <WalletManager />
+                <WalletManager currentPath={path} />
               </Col>
             </Row>
           </Space>

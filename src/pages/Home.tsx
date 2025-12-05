@@ -40,9 +40,9 @@ export default function Home() {
   const { navigate } = useRouter();
 
   return (
-    <Space direction="vertical" size="large" style={{ width: '100%' }}>
+    <Space orientation="vertical" size="large" style={{ width: '100%' }}>
       <Card>
-        <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+        <Space orientation="vertical" size="middle" style={{ width: '100%' }}>
           <Tag color="blue">Zzzzz · Web3 Toolkit</Tag>
           <Title level={3} style={{ margin: 0 }}>多链资产调度导航台</Title>
           <Text type="secondary">
@@ -61,7 +61,7 @@ export default function Home() {
         {tools.map(tool => (
           <Col xs={24} md={8} key={tool.path}>
             <Card hoverable onClick={() => navigate(tool.path)}>
-              <Space direction="vertical" size="small">
+              <Space orientation="vertical" size="small">
                 <Tag>{tool.tag}</Tag>
                 <Title level={4} style={{ margin: 0 }}>{tool.title}</Title>
                 <Text type="secondary">{tool.desc}</Text>

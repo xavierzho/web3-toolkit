@@ -8,9 +8,9 @@ export default function SolBatchPage() {
   const { navigate } = useRouter();
 
   return (
-    <Space direction="vertical" size="large" style={{ width: '100%' }}>
+    <Space orientation="vertical" size="large" style={{ width: '100%' }}>
       <Card>
-        <Space direction="vertical" size="small" style={{ width: '100%' }}>
+        <Space orientation="vertical" size="small" style={{ width: '100%' }}>
           <Text type="secondary" style={{ letterSpacing: '0.3em', fontSize: 12 }}>BATCH DISPATCH · SOLANA</Text>
           <Title level={3} style={{ margin: 0 }}>Solana 批量派发</Title>
           <Text type="secondary">

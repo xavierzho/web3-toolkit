@@ -1,5 +1,7 @@
-import { Card, Space, Typography, Button } from 'antd';
+import { Card, Space, Typography, Button, Tabs } from 'antd';
 import EvmBatchSender from '../components/EvmBatchSender';
+import EvmBatchCollection from '../components/EvmBatchCollection';
+import EvmBatchTransfer from '../components/EvmBatchTransfer';
 import { useRouter } from '../router';
 
 const { Text, Title } = Typography;
@@ -7,19 +9,38 @@ const { Text, Title } = Typography;
 export default function EvmBatchPage() {
   const { navigate } = useRouter();
 
+  const items = [
+    {
+      key: 'dispatch',
+      label: '批量分发 (Dispatch)',
+      children: <EvmBatchSender />,
+    },
+    {
+      key: 'collection',
+      label: '批量归集 (Collection)',
+      children: <EvmBatchCollection />,
+    },
+    {
+      key: 'transfer',
+      label: '批量转账 (P2P)',
+      children: <EvmBatchTransfer />,
+    },
+  ];
+
   return (
-    <Space direction="vertical" size="large" style={{ width: '100%' }}>
+    <Space orientation="vertical" size="large" style={{ width: '100%' }}>
       <Card>
-        <Space direction="vertical" size="small" style={{ width: '100%' }}>
-          <Text type="secondary" style={{ letterSpacing: '0.3em', fontSize: 12 }}>BATCH DISPATCH · EVM</Text>
-          <Title level={3} style={{ margin: 0 }}>EVM 批量转账中心</Title>
+        <Space orientation="vertical" size="small" style={{ width: '100%' }}>
+          <Text type="secondary" style={{ letterSpacing: '0.3em', fontSize: 12 }}>BATCH OPERATIONS · EVM</Text>
+          <Title level={3} style={{ margin: 0 }}>EVM 批量操作中心</Title>
           <Text type="secondary">
-            导入地址清单，支持同时控制外部钱包或本地私钥，Native 与 ERC20 一键切换。表格内联校验，实时输出统计。
+            一站式管理批量转账与归集。支持 One-to-Many (分发)、Many-to-One (归集)、Many-to-Many (P2P) 模式。
           </Text>
-          <Button type="link" onClick={() => navigate('/')}>返回主页</Button>
+          <Button type="link" onClick={() => navigate('/')} style={{ paddingLeft: 0 }}>返回主页</Button>
         </Space>
       </Card>
-      <EvmBatchSender />
+
+      <Tabs defaultActiveKey="dispatch" items={items} type="card" />
     </Space>
   );
 }

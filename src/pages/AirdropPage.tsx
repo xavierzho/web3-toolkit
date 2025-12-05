@@ -30,21 +30,26 @@ type ParsedRow = {
 };
 
 
+import { useWalletStore } from '../store/walletStore';
+
 export default function AirdropPage() {
   const { message } = App.useApp();
+  const { chainId, rpcUrl } = useWalletStore();
+
   const [rawInput, setRawInput] = useState('0x0eef63f2079e856476c290bd596318f8aef44a93');
   const [hasHeader, setHasHeader] = useState(true);
   const [autoCheckBalance, setAutoCheckBalance] = useState(false);
-  const [rpc, setRpc] = useState('https://bsc-testnet-dataseed.bnbchain.org');
+  // Removed local rpc and chainIdInput state
+
   const [tokenAddress, setTokenAddress] = useState('0x957AC971ac3063A8AB0029257CcfFD5CFFF97a8a');
   const [tokenDecimals, setTokenDecimals] = useState(18);
   const [airdropContract, setAirdropContract] = useState('0xe54636a039e2E1AbD8dDB73373b4e168449389Bb');
   const [rows, setRows] = useState<ParsedRow[]>([]);
   const [loading, setLoading] = useState(false);
-  const [chainIdInput, setChainIdInput] = useState('97');
+
   const { address } = useAccount();
-  const publicClient = usePublicClient({ chainId: (Number(chainIdInput) || 56) as any });
-  const { sendTransaction, deployContract } = useUnifiedSender(Number(chainIdInput) || 56, rpc);
+  const publicClient = usePublicClient({ chainId: (Number(chainId) || 56) as any });
+  const { sendTransaction, deployContract } = useUnifiedSender(); // Uses global state by default
   const [deploying, setDeploying] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
 
@@ -132,11 +137,10 @@ export default function AirdropPage() {
     }
     try {
       setLoading(true);
-      const chainId = Number(chainIdInput);
       const chain = [bsc, bscTestnet, mainnet, sepolia].find(c => c.id === chainId) || bscTestnet;
       const client = createPublicClient({
         chain,
-        transport: http(rpc)
+        transport: http(rpcUrl)
       });
       let decimals = tokenDecimals;
       try {
@@ -240,26 +244,26 @@ export default function AirdropPage() {
   };
 
   return (
-    <Space direction="vertical" size="large" style={{ width: '100%' }}>
+    <Space orientation="vertical" size="large" style={{ width: '100%' }}>
       {/* 步骤指示器 */}
       <Card>
         <Steps
           current={currentStep}
           items={[
-            { title: '添加地址', description: '上传或粘贴地址列表' },
-            { title: '解析校验', description: '验证地址格式' },
-            { title: '部署合约', description: '部署空投合约（可选）' },
-            { title: '充值代币', description: '向合约转入代币' },
-            { title: '分配数量', description: '设置每个地址的数量' },
-            { title: '发起空投', description: '执行批量转账' },
-            { title: '提取余额', description: '提取剩余代币（可选）' },
+            { title: '添加地址', content: '上传或粘贴地址列表' },
+            { title: '解析校验', content: '验证地址格式' },
+            { title: '部署合约', content: '部署空投合约（可选）' },
+            { title: '充值代币', content: '向合约转入代币' },
+            { title: '分配数量', content: '设置每个地址的数量' },
+            { title: '发起空投', content: '执行批量转账' },
+            { title: '提取余额', content: '提取剩余代币（可选）' },
           ]}
         />
       </Card>
 
       {/* 步骤 1: 添加地址 */}
       <Card title="步骤 1: 添加地址" extra={currentStep === 0 && <Tag color="blue">当前步骤</Tag>}>
-        <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+        <Space orientation="vertical" size="middle" style={{ width: '100%' }}>
           <Space align="center" wrap>
             <label>
               <input type="file" accept=".csv,.txt" onChange={(e) => e.target.files?.[0] && readFile(e.target.files[0])} />
@@ -287,8 +291,6 @@ export default function AirdropPage() {
               <Text type="secondary">解析后自动查余额</Text>
               <Switch checked={autoCheckBalance} onChange={setAutoCheckBalance} />
             </Space>
-            <Input style={{ width: 240 }} value={rpc} onChange={(e: ChangeEvent<HTMLInputElement>) => setRpc(e.target.value)} placeholder="RPC" />
-            <Input style={{ width: 120 }} value={chainIdInput} onChange={(e: ChangeEvent<HTMLInputElement>) => setChainIdInput(e.target.value)} placeholder="Chain ID" />
           </Space>
         </Space>
       </Card>
@@ -319,7 +321,7 @@ export default function AirdropPage() {
         title="步骤 3: 部署空投合约（可选）"
         extra={currentStep === 2 && <Tag color="blue">当前步骤</Tag>}
       >
-        <Space direction="vertical" style={{ width: '100%' }}>
+        <Space orientation="vertical" style={{ width: '100%' }}>
           <Text type="secondary">如果已有合约地址，可以跳过此步骤，直接在下方输入合约地址</Text>
           <Space>
             <Button type="primary" onClick={handleDeploy} loading={deploying}>
@@ -342,7 +344,7 @@ export default function AirdropPage() {
       {/* 数据预览 - 显示在步骤2之后 */}
       {rows.length > 0 && (
         <Card title="地址列表预览">
-          <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+          <Space orientation="vertical" size="middle" style={{ width: '100%' }}>
             <Space wrap>
               <Tag color="blue">共 {rows.length}</Tag>
               <Tag color="green">有效 {summary.valid}</Tag>
@@ -389,7 +391,7 @@ export default function AirdropPage() {
           title="步骤 4: 充值代币到合约"
           extra={currentStep === 3 && <Tag color="blue">当前步骤</Tag>}
         >
-          <Space direction="vertical" style={{ width: '100%' }}>
+          <Space orientation="vertical" style={{ width: '100%' }}>
             <Input
               placeholder="代币地址"
               value={tokenAddress}
@@ -449,7 +451,7 @@ export default function AirdropPage() {
           title="步骤 6: 执行批量空投"
           extra={currentStep === 5 && <Tag color="blue">当前步骤</Tag>}
         >
-          <Space direction="vertical">
+          <Space orientation="vertical">
             <Text type="secondary">
               即将向 {rows.filter(r => r.valid).length} 个地址发送代币
             </Text>
@@ -485,11 +487,10 @@ export default function AirdropPage() {
                   }
 
                   // 查询合约余额
-                  const chainId = Number(chainIdInput);
                   const chain = [bsc, bscTestnet, mainnet, sepolia].find(c => c.id === chainId) || bscTestnet;
                   const client = createPublicClient({
                     chain,
-                    transport: http(rpc)
+                    transport: http(rpcUrl)
                   });
 
                   const balance = await client.readContract({

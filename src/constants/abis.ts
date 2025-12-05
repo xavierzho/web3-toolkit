@@ -38,6 +38,7 @@ export const CONTRACT_ADDRESSES: Record<number, `0x${string}`> = {
   1: "0x...", // Mainnet
   56: "0x...", // BSC
   137: "0x...", // Polygon
+  97: "0x...", // BSC 测试网
   // 这是一个常用的开源 Disperse 合约地址，仅作测试参考，建议自己部署
   11155111: "0xD152f549545093347A162Dce210e7293f1452150" // Sepolia 测试网
 };
